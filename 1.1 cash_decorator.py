@@ -1,15 +1,29 @@
 import unittest.mock
+import functools
+from collections import OrderedDict
 
 
-def lru_cache(f):
-    memo = dict()
+def lru_cache(func=None, *, maxsize=None):
+    def decorator(func):
+        cache = OrderedDict()
 
-    def warp(*args, **kwargs):
-        if args not in memo:
-            memo[args] = f(*args, **kwargs)
-        return memo[args]
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            key = (args, frozenset(kwargs.items()))
+            if key in cache:
+                cache.move_to_end(key)
+                return cache[key]
+            result = func(*args, **kwargs)
+            cache[key] = result
+            cache.move_to_end(key)
+            if maxsize is not None and len(cache) > maxsize:
+                cache.popitem(last=False)
+            return result
 
-    return warp
+        return wrapper
+    if func is not None and callable(func):
+        return decorator(func)
+    return decorator
 
 
 @lru_cache
