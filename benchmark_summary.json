@@ -1,0 +1,17 @@
+{
+  "10000": {
+    "ThreadPoolExecutor": 0.7543134919997101,
+    "Multiprocessing.Pool": 0.2099198140003864,
+    "Manual multiprocessing": 0.4439608809989295
+  },
+  "100000": {
+    "ThreadPoolExecutor": 8.089912200000981,
+    "Multiprocessing.Pool": 1.9206495560010808,
+    "Manual multiprocessing": 3.831616245000987
+  },
+  "1000000": {
+    "ThreadPoolExecutor": 80.61539113800063,
+    "Multiprocessing.Pool": 19.52177090799887,
+    "Manual multiprocessing": 37.83303725800033
+  }
+}

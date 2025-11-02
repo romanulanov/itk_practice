@@ -1,39 +1,49 @@
 import random
-import math
 import time
 import json
-from concurrent.futures import ThreadPoolExecutor
 import multiprocessing as mp
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, Dict
 
 
-def generate_data(n: int):
+def generate_data(n: int) -> List[int]:
     return [random.randint(1, 10000) for _ in range(n)]
 
 
-def process_number(number: int):
-    return math.factorial(number % 20)
+def process_number(number: int) -> int:
+    x = number % 1000 + 500
+    res = 0
+    for i in range(x):
+        res += i * i
+    return res
 
 
-def threaded(data):
-    with ThreadPoolExecutor(max_workers=8) as executor:
+def threaded(data: List[int]) -> List[int]:
+    with ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:
         return list(executor.map(process_number, data))
 
 
-def multiprocessing_pool(data):
+def multiprocessing_pool(data: List[int]) -> List[int]:
     with mp.Pool(mp.cpu_count()) as pool:
         return pool.map(process_number, data)
 
 
-def worker(input_queue, output_queue):
+def worker(input_queue: mp.Queue, output_queue: mp.Queue) -> None:
     while True:
-        num = input_queue.get()
+        try:
+            num = input_queue.get(timeout=2)
+        except Exception:
+            break
         if num is None:
             break
-        result = process_number(num)
-        output_queue.put(result)
+        try:
+            result = process_number(num)
+            output_queue.put(result)
+        except Exception:
+            output_queue.put(None)
 
 
-def multiprocessing_manual(data):
+def multiprocessing_manual(data: List[int]) -> List[int]:
     input_q = mp.Queue()
     output_q = mp.Queue()
 
@@ -59,33 +69,41 @@ def multiprocessing_manual(data):
     return results
 
 
-def benchmark():
-    data = generate_data(100_000)
-
+def benchmark(data: List[int]) -> Dict[str, float]:
     variants = [
         ("ThreadPoolExecutor", threaded),
         ("Multiprocessing.Pool", multiprocessing_pool),
         ("Manual multiprocessing", multiprocessing_manual),
     ]
 
-    results_summary = []
+    results_summary = {}
 
     for name, func in variants:
         start = time.perf_counter()
-        results = func(data)
+        _ = func(data)
         elapsed = time.perf_counter() - start
 
-        print(f"{name:<25} | {elapsed} сек")
-        results_summary.append((name, elapsed))
+        print(f"{name:<25} | {elapsed:.2f} сек")
+        results_summary[name] = elapsed
 
-        with open(f"{name.replace(' ', '_')}.json", "w", encoding="utf-8") as f:
-            json.dump(results[:100], f, ensure_ascii=False, indent=2)
+    return results_summary
 
-    print("\nСравнение времени выполнения:")
-    print(f"{'Вариант':<25} | {'Время (сек)':>12}")
-    for name, t in results_summary:
-        print(f"{name:<25} | {t:>10}")
+
+def benchmark_series():
+    sizes = [10000, 100000, 1000000]
+    all_results = {}
+
+    for n in sizes:
+        print(f"\n=== Тест для n={n:,} ===")
+        data = generate_data(n)
+        res = benchmark(data)
+        all_results[n] = res
+
+    with open("summary.json", "w", encoding="utf-8") as f:
+        json.dump(all_results, f, ensure_ascii=False, indent=2)
+
+    return all_results
 
 
 if __name__ == "__main__":
-    benchmark()
+    all_results = benchmark_series()
